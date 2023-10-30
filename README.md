@@ -1,5 +1,6 @@
 # Multiple-PDF-Query-with-upvote-and-sources
 
+`convert_webpages_to_PDFs.py` extracts text from webpages in `URLs.txt`, converts them to PDFs and saves them in `Docs`
 
 `backend.py` creates and stores the vector embeddings of the PDF docs supplied in `Docs`
 
