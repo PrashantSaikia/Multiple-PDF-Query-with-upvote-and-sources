@@ -1,5 +1,5 @@
 ##########################################################################
-# NEED TO RUN ONLY ONCE CREATE THE VECTORSTORE IN WEAVIATE CLOUD (WCS).  #
+# NEED TO RUN ONLY ONCE CREATE THE VECTORSTORE (SELF HOSTED K8S CLUSTER).#
 # NO NEED TO RUN AGAIN UNLESS YOU WANT TO CHANGE THE VECTORSTORE SCHEMA. #
 # RESUSE THE VECTORESTORE BY REFERENCING THE NAME OF THE SCHEMA CLASS.   #
 ##########################################################################
@@ -17,21 +17,23 @@ client = weaviate.Client('http://localhost:80')
 
 # Load the documents
 doc_loader = DirectoryLoader(
-    r'C:\Users\username\Documents\Docs',
+    r'C:\Users\prasanta.saikia\Documents\Documentation GPT\v1.1\Docs',
     glob='**/*.pdf',
     show_progress=True
 )
-docs = doc_loader.load()
+data = doc_loader.load()
+
+print(f"You have {len(data)} documents.")
 
 # Split the docs into chunks
 splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1024,
+    chunk_size=1000,
     chunk_overlap=50
 )
-splitted_docs_list = splitter.split_documents(docs)
+docs = splitter.split_documents(data)
 
 # Create schema
-classname = 'LangChain2'
+classname = 'Chatbot'
 # We need to set index_name and vectorizer for the database, 
 # otherwise we will not be able to measure text similarities
 # langchain is supposed to set this for you, add this if needed
@@ -42,12 +44,24 @@ if client.schema.exists(classname):
 
 class_obj = {
     "class": classname,
+    "description": "Documents for chatbot",
     "vectorizer": "text2vec-openai",
     "moduleConfig": {
-        "text2vec-openai": {
-            "vectorizeClassName": True
-        }
-    }  # Or "text2vec-cohere" or "text2vec-huggingface"
+        "text2vec-openai": {"model": "ada", "type": "text"},
+    },
+    "properties": [
+        {
+            "dataType": ["text"],
+            "description": "The content of the paragraph",
+            "moduleConfig": {
+                "text2vec-openai": {
+                    "skip": False,
+                    "vectorizePropertyName": False,
+                }
+            },
+            "name": "content",
+        },
+    ],
 }
 
 try:
@@ -57,10 +71,10 @@ except:
   print("Class already exists")
 
 embeddings = OpenAIEmbeddings()
-# We use 'classname' for index_name and 'text' for text_key
-vectorstore = Weaviate(client, classname, "text", embedding=embeddings)
+# We use 'classname' for index_name and 'content' for text_key
+vectorstore = Weaviate(client, classname, "content", embedding=embeddings, attributes=["source"])
 
 # add text chunks' embeddings to the Weaviate vector database
-texts = [d.page_content for d in splitted_docs_list]
-metadatas = [d.metadata for d in splitted_docs_list]
-vectorstore.add_texts(texts, metadatas=metadatas, embedding=embeddings)
+text_meta_pair = [(doc.page_content, doc.metadata) for doc in docs]
+texts, meta = list(zip(*text_meta_pair))
+vectorstore.add_texts(texts, meta)
