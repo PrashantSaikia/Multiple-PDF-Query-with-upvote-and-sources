@@ -122,3 +122,10 @@ async def main(message: cl.Message):
             answer += "\nNo sources found"
 
     await cl.Message(content=answer, elements=text_elements).send()
+
+@cl.oauth_callback
+def auth_callback(provider_id: str, token: str, raw_user_data, default_app_user):
+    if provider_id=='google':
+        if '@gmail.com' in raw_user_data['email']:
+            return default_app_user
+    return None
